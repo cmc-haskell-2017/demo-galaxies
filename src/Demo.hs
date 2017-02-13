@@ -3,6 +3,24 @@ module Demo where
 import Graphics.Gloss.Interface.Pure.Simulate
 import Graphics.Gloss.Data.Vector
 
+-- | Угловой момент системы частиц.
+angularMomentum :: [Particle] -> Float
+angularMomentum _ = 0 -- реализуйте самостоятельно :)
+
+-- | Рассчитать центр масс системы частиц.
+massCenter :: [Particle] -> Point
+massCenter ps = sum (map g ps)
+  where
+    m = sum (map mass ps)
+    g p = mulSV (mass p / m) (position p)
+
+-- | Кинетическая энергия системы частиц.
+kineticEnergy :: [Particle] -> Float
+kineticEnergy = sum . map k
+  where
+    k p = mass p * (v p)^2 / 2
+    v p = magV (velocity p)
+
 -- | Запустить моделирование с заданным начальным состоянием вселенной.
 demo :: Universe -> IO ()
 demo universe = simulate display bgColor fps universe drawUniverse updateUniverse
@@ -14,8 +32,8 @@ demo universe = simulate display bgColor fps universe drawUniverse updateUnivers
 -- | Стандартная вселенная с двумя вращающимися галактиками.
 defaultUniverse :: Universe
 defaultUniverse = Universe
-  [ genGalaxy 100 (-10,-10) (0.5, 0.01)
-  , genGalaxy 150 (10, 10) (-0.1, -0.01)
+  [ genGalaxy True  90 (-10,-10) (0.3, 0.01)
+  , genGalaxy False 150 (10, 10) (-0.3, -0.01)
   ]
 
 -- | Модель вселенной.
@@ -39,12 +57,14 @@ data Particle = Particle
   }
 
 -- | Сгенерировать галактику с заданным кол-вом звёзд и положением центра
-genGalaxy :: Int -> Point -> Vector -> Galaxy
-genGalaxy n center vel = Galaxy (blackHole : take n stars)
+genGalaxy :: Bool -> Int -> Point -> Vector -> Galaxy
+genGalaxy rotationDir n center vel = Galaxy (blackHole : take n stars)
   where
+    rsign = if rotationDir then 1 else -1
+
     stars = map mkStar locs
     locs  = zipWith mulSV dists dirs
-    dirs  = iterate (rotateV phi) (1, 0)
+    dirs  = iterate (rotateV (- rsign * phi)) (1, 0)
     dists = [3, 3.1 ..]
 
     m = 1
@@ -55,23 +75,53 @@ genGalaxy n center vel = Galaxy (blackHole : take n stars)
       where
         accel = magV (gravityAccel star (Particle (m * fromIntegral n + mass blackHole - m) center (0, 0)))
         dist  = magV loc
-        star = Particle m (center + loc) (vel + mulSV (sqrt (accel * dist)) (normalizeV (rotateV (-pi/2) loc)))
+        star  = Particle m (center + loc) (vel + mulSV (sqrt (accel * dist)) (normalizeV (rotateV (rsign * pi/2) loc)))
 
     phi = (1 + sqrt 5) / 2  -- золотое сечение
 
 -- | Отобразить вселенную.
 drawUniverse :: Universe -> Picture
-drawUniverse = scale 3 3 . pictures . map drawGalaxy . galaxies
+drawUniverse u = scale 6 6 $ pictures
+  [ pictures (zipWith drawGalaxy [red, magenta] (galaxies u))
+  , color green (drawMassCenter (massCenter (allParticles u)))
+  , color green (drawAngularMomentum (angularMomentum (allParticles u)) (massCenter (allParticles u)))
+  , color green (text' 0 ("K = "  ++ show (kineticEnergy (allParticles u))))
+  , color red (text' 1 ("K1 = " ++ show (kineticEnergy (stars (galaxies u !! 0)))))
+  , color magenta (text' 2 ("K2 = " ++ show (kineticEnergy (stars (galaxies u !! 1)))))
+  ]
+  where
+    text' n = translate (-40) (30 - n * 4) . scale 0.02 0.02 . text
 
 -- | Отобразить галактику.
-drawGalaxy :: Galaxy -> Picture
-drawGalaxy = pictures . map drawStar . stars
+drawGalaxy :: Color -> Galaxy -> Picture
+drawGalaxy c g = pictures
+  [ pictures (map drawStar (stars g))
+  , color c (drawMassCenter (massCenter (stars g)))
+  , color c (drawAngularMomentum (angularMomentum (stars g)) (massCenter (stars g)))
+  ]
 
 -- | Отобразить звезду.
 drawStar :: Particle -> Picture
 drawStar p = color white (uncurry translate (position p) (thickCircle (r / 2) r))
   where
-    r = 0.7 * mass p ** 0.1
+    r = 0.4 * mass p ** 0.1
+
+-- | Отобразить точку как центр масс.
+drawMassCenter :: Point -> Picture
+drawMassCenter pos = uncurry translate pos (thickCircle 0.2 0.4)
+
+-- | Отобразить угловой момент в виде стрелки.
+-- Толщина стрелки показывать абсолютную величину углового момента.
+drawAngularMomentum :: Float -> Point -> Picture
+drawAngularMomentum am pos
+  | am == 0   = blank
+  | otherwise = uncurry translate pos (pictures [thickArc 0 180 r (dr * r/3), triangle])
+  where
+    dr = 1 - 1 / (am / 300 + 1)
+    r = 2
+    triangle = if am < 0 then triangleL else triangleR
+    triangleR = polygon [(-r, -0.3*r), (-1.3*r, 0.3*r), (-0.7*r, 0.3*r)]
+    triangleL = polygon [(r, -0.3*r), (1.3*r, 0.3*r), (0.7*r, 0.3*r)]
 
 -- | Обновить состояние вселенной по прошествии заданного времени.
 updateUniverse :: ViewPort -> Float -> Universe -> Universe
