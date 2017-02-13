@@ -1,0 +1,32 @@
+name:                demo-galaxies
+version:             0.1
+-- synopsis:
+-- description:
+homepage:            https://github.com/cmc-haskell-2017/demo-galaxies#readme
+license:             MIT
+license-file:        LICENSE
+author:              Nickolay Kudasov
+maintainer:          nickolay.kudasov@gmail.com
+copyright:           2017 Nickolay Kudasov
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Demo
+  build-depends:       base >= 4.7 && < 5
+                     , gloss
+  default-language:    Haskell2010
+
+executable demo-galaxies
+  hs-source-dirs:      app
+  main-is:             Main.hs
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base
+                     , demo-galaxies
+  default-language:    Haskell2010
+
+source-repository head
+  type:     git
+  location: https://github.com/cmc-haskell-2017/demo-galaxies
