@@ -9,7 +9,7 @@
 Клонируйте репозиторий:
 
 ```
-clone https://github.com/cmc-haskell-2017/demo-galaxies.git
+git clone https://github.com/cmc-haskell-2017/demo-galaxies.git
 cd demo-galaxies
 ```
 
