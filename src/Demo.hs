@@ -32,8 +32,8 @@ demo universe = simulate display bgColor fps universe drawUniverse updateUnivers
 -- | Стандартная вселенная с двумя вращающимися галактиками.
 defaultUniverse :: Universe
 defaultUniverse = Universe
-  [ genGalaxy True  90 (-10,-10) (0.3, 0.01)
-  , genGalaxy False 150 (10, 10) (-0.3, -0.01)
+  [ genGalaxy Clockwise         90 (-10,-10) ( 0.3,  0.01)
+  , genGalaxy Counterclockwise 150 ( 10, 10) (-0.3, -0.01)
   ]
 
 -- | Модель вселенной.
@@ -56,13 +56,26 @@ data Particle = Particle
   , velocity  :: Vector -- ^ Вектор скорости частицы.
   }
 
--- | Сгенерировать галактику с заданным кол-вом звёзд и положением центра
-genGalaxy :: Bool -> Int -> Point -> Vector -> Galaxy
-genGalaxy rotationDir n center vel = Galaxy (blackHole : take n stars)
-  where
-    rsign = if rotationDir then 1 else -1
+-- | Направление вращательного движения.
+data RotationDir
+  = Clockwise         -- ^ По часовой стрелке.
+  | Counterclockwise  -- ^ Против часовой стрелки.
 
-    stars = map mkStar locs
+-- | Сгенерировать галактику.
+genGalaxy
+  :: RotationDir -- ^ Направление вращения галактики.
+  -> Int         -- ^ Количество звёзд (не считая чёрной дыры в центре галактики).
+  -> Point       -- ^ Расположение центра галактики.
+  -> Vector      -- ^ Вектор скорости центра масс галактики.
+  -> Galaxy
+genGalaxy rotationDir n center vel = Galaxy (blackHole : galaxyStars)
+  where
+    rsign = case rotationDir of
+      Clockwise        ->  1
+      Counterclockwise -> -1
+
+    galaxyStars = take n (map mkStar locs)
+
     locs  = zipWith mulSV dists dirs
     dirs  = iterate (rotateV (- rsign * phi)) (1, 0)
     dists = [3, 3.1 ..]
